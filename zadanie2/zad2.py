@@ -29,7 +29,7 @@ cam.start_acquisition()
 
 c=0;
 #"""
-while 0 and cv2.waitKey() != ord('q'):
+while cv2.waitKey() != ord('q'):
     cam.get_image(img)
     image = img.get_image_data_numpy()
     image = cv2.resize(image,(257,308))
