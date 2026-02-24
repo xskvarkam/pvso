@@ -29,56 +29,99 @@ cam.start_acquisition()
 
 c=0;
 #"""
-while cv2.waitKey() != ord('q'):
+while 0 and cv2.waitKey() != ord('q'):
     cam.get_image(img)
     image = img.get_image_data_numpy()
-    image = cv2.resize(image,(240,240))
+    image = cv2.resize(image,(257,308))
     cv2.imshow("Foto", image)
     cv2.imwrite("img" + str(c) + ".jpg", image)
 
 
-    if(c > 2):
+    if(c > 12):
         break;
     c += 1
-#"""
-imgs=[];
-for i in range(4):
-    imgs.append(cv2.imread("img"+str(i)+".jpg"))
-    print(i)
+import numpy as np
+import cv2 as cv
+import glob
+import os
+# termination criteria
+criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
-kernel1 = np.array([[1/16,1/8,1/16],
-                    [1/8,1/4,1/8],
-                    [1/16,1/8,1/16]])
-#toto je gaussovsky kernel ktory mierne rozmaze obrazkok.
+# prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
+objp = np.zeros((7 * 5, 3), np.float32)
+objp[:, :2] = np.mgrid[0:5, 0:7].T.reshape(-1, 2)
 
+# Arrays to store object points and image points from all the images.
+objpoints = []  # 3d point in real world space
+imgpoints = []  # 2d points in image plane.
 
-vis = np.concatenate((imgs[0], imgs[1]), axis=1)
+images=[];
+for i in range(14):
+    images.append("img"+str(i)+".jpg")
 
-vis2 = np.concatenate((imgs[2], imgs[3]), axis=1)
-vis3 = np.concatenate((vis, vis2), axis=0)
+for fname in images:
+    img = cv.imread(fname)
+    gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
 
+    # Find the chess board corners
+    ret, corners = cv.findChessboardCorners(gray, (5, 7), None)
 
-vis3[0:240 , 0:240 ] = cv2.filter2D(src=vis3[0:240 , 0:240], ddepth=-1, kernel=kernel1,borderType=cv2.BORDER_DEFAULT)
-#gaussovsky
+    # If found, add object points, image points (after refining them)
+    if ret == True:
+        objpoints.append(objp)
 
+        corners2 = cv.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
+        imgpoints.append(corners2)
 
-for y in range(240):
-    for x in range(y,240):
-        temp = vis3[0:240 , 240:480][y][x].copy()
+        # Draw and display the corners
+        cv.drawChessboardCorners(img, (5, 7), corners2, ret)
+        cv.imshow('img', img)
+        cv.waitKey(500)
 
-        vis3[0:240 , 240:480][y][x] = vis3[0:240 , 240:480][x][y]
-        vis3[0:240, 240:480][x][y]=temp
-    vis3[0:240, 240:480][y] = np.flip(vis3[0:240 , 240:480][y],0)
+ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
+# --- SPLNENIE ZADANIA ---
+if ret:
+    # 1. Vypíšte maticu vnútorných parametrov kamery
+    print("\n--- MATICA VNÚTORNÝCH PARAMETROV KAMERY ---")
+    print(mtx)
 
+    # 2. Určte hodnoty fx, fy, cx, cy
+    fx = mtx[0, 0]
+    fy = mtx[1, 1]
+    cx = mtx[0, 2]
+    cy = mtx[1, 2]
 
-vis3[240:480, 0:240, 0] = 0
-vis3[240:480, 0:240, 1] = 0
-print(f"Dátový typ: {vis3.dtype}")
-print(f"Rozmer: {vis3.shape}")
-print(f"Veľkosť: {vis3.size}")
-cv2.imshow("Mozaika",vis3)
-cv2.waitKey()
-cv2.imwrite("mozaika.jpg", vis3)
+    print("\n--- VNÚTORNÉ PARAMETRE ---")
+    print(f"fx (Ohnisková vzdialenosť x): {fx:.4f}")
+    print(f"fy (Ohnisková vzdialenosť y): {fy:.4f}")
+    print(f"cx (Optický stred x): {cx:.4f}")
+    print(f"cy (Optický stred y): {cy:.4f}")
+
+    print(f"\nDistorzné koeficienty:\n{dist}")
+
+    # 3. Uložte maticu kamery a distorzné koeficienty pre ďalšie použitie
+    np.savez("parametre_kamery.npz", mtx=mtx, dist=dist)
+    print("\nMatica a koeficienty boli úspešne uložené do 'parametre_kamery.npz'.")
+
+    # 4. Demonštrujte odstránenie skreslenia (undistortion) na reálnom obraze
+    print("\n--- DEMONŠTRÁCIA UNDISTORTION ---")
+    # Načítame prvý obrázok zo zoznamu ako testovací
+    test_img = cv.imread(images[0])
+
+    if test_img is not None:
+        # Aplikovanie opravenia obrazu
+        undistorted_img = cv.undistort(test_img, mtx, dist, None, mtx)
+
+        # Zobrazenie vedľa seba (ak sú obrázky príliš veľké, môžeš pridať cv.resize)
+        cv.imshow('Originalny obraz (so skreslenim)', test_img)
+        cv.imshow('Opraveny obraz (Undistorted)', undistorted_img)
+
+        print("Stlač ľubovoľnú klávesu v okne s obrázkom pre ukončenie...")
+        cv.waitKey(0)
+        cv.destroyAllWindows()
+    else:
+        print("Chyba: Kalibrácia zlyhala. Nenašiel sa dostatok dobrých bodov.")
+cv.destroyAllWindows()
 
 
 """
