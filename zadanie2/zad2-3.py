@@ -2,11 +2,12 @@ from ximea import xiapi
 import cv2
 import numpy as np
 
+
 def nic(x):
     pass
 
+
 cam = xiapi.Camera()
-print('Otváram kameru...')
 cam.open_device()
 
 cam.set_exposure(10000)
@@ -14,7 +15,6 @@ cam.set_param("imgdataformat", "XI_RGB32")
 cam.set_param("auto_wb", 1)
 
 img = xiapi.Image()
-print('Spúšťam spracovanie (stlačte "q" pre ukončenie)...')
 cam.start_acquisition()
 
 data = np.load('parametre_kamery.npz')
@@ -23,6 +23,8 @@ dist = data['dist']
 
 cv2.namedWindow('Nastavenia', cv2.WINDOW_NORMAL)
 cv2.resizeWindow('Nastavenia', 600, 600)
+cv2.namedWindow('Hladana Farba (Rozsah)', cv2.WINDOW_NORMAL)
+cv2.resizeWindow('Hladana Farba (Rozsah)', 300, 150)
 
 panel = np.zeros((230, 500, 3), dtype=np.uint8)
 
@@ -33,8 +35,6 @@ cv2.putText(panel, "4 - S Max (Sytost do sytych)", (10, 120), cv2.FONT_HERSHEY_S
 cv2.putText(panel, "5 - V Min (Jas od tmy)", (10, 150), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
 cv2.putText(panel, "6 - V Max (Jas do silneho svetla)", (10, 180), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
 cv2.putText(panel, "7 - NOVA FARBA (0=C, 60=Z, 120=M)", (10, 210), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
-
-cv2.imshow('Nastavenia', panel)
 
 cv2.createTrackbar('1', 'Nastavenia', 170, 179, nic)
 cv2.createTrackbar('2', 'Nastavenia', 10, 179, nic)
@@ -48,7 +48,6 @@ while True:
     cam.get_image(img)
     frame = img.get_image_data_numpy()
     frame = cv2.resize(frame, (616, 514))
-
     frame = cv2.undistort(frame, mtx, dist, None, mtx)
 
     if frame.shape[2] == 4:
@@ -61,7 +60,7 @@ while True:
     s_max = cv2.getTrackbarPos('4', 'Nastavenia')
     v_min = cv2.getTrackbarPos('5', 'Nastavenia')
     v_max = cv2.getTrackbarPos('6', 'Nastavenia')
-    nova_farba_h = cv2.getTrackbarPos('7', 'Nastavenia')
+    nova_farbax_h = cv2.getTrackbarPos('7', 'Nastavenia')
 
     if h_min <= h_max:
         lower_bound = np.array([h_min, s_min, v_min])
@@ -71,25 +70,32 @@ while True:
         lower1 = np.array([h_min, s_min, v_min])
         upper1 = np.array([179, s_max, v_max])
         mask1 = cv2.inRange(hsv, lower1, upper1)
-
         lower2 = np.array([0, s_min, v_min])
         upper2 = np.array([h_max, s_max, v_max])
         mask2 = cv2.inRange(hsv, lower2, upper2)
-
         mask = cv2.bitwise_or(mask1, mask2)
 
     kernel = np.ones((5, 5), np.uint8)
     mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
 
-    hsv[mask > 0, 0] = nova_farba_h
+    range_swatch = np.zeros((150, 300, 3), dtype=np.uint8)
+    range_swatch[:, :150] = [h_min, s_min, v_min]
+    range_swatch[:, 150:] = [h_max, s_max, v_max]
+    range_swatch = cv2.cvtColor(range_swatch, cv2.COLOR_HSV2BGR)
 
-    result = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+    cv2.putText(range_swatch, "MIN", (50, 140), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+    cv2.putText(range_swatch, "MAX", (200, 140), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+
+    hsv_copy = hsv.copy()
+    hsv_copy[mask > 0, 0] = nova_farba_h
+    result = cv2.cvtColor(hsv_copy, cv2.COLOR_HSV2BGR)
 
     cv2.imshow('1 - Original', frame)
     cv2.imshow('2 - Maska (Prahovanie)', mask)
     cv2.imshow('3 - Vysledok', result)
     cv2.imshow('Nastavenia', panel)
+    cv2.imshow('Hladana Farba (Rozsah)', range_swatch)
 
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
@@ -97,4 +103,3 @@ while True:
 cam.stop_acquisition()
 cam.close_device()
 cv2.destroyAllWindows()
-print('Ukončené.')

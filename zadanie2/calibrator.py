@@ -28,7 +28,7 @@ cam.start_acquisition()
 
 c=0;
 
-while True:
+while 0:
     cam.get_image(img)
     image = img.get_image_data_numpy()
     image = cv2.resize(image, (308 * 2, 257 * 2))
@@ -58,8 +58,8 @@ objpoints = []  # 3d point in real world space
 imgpoints = []  # 2d points in image plane.
 
 images=[];
-for i in range(14):
-    images.append("img"+str(i)+".jpg")
+for i in range(2,14):
+    images.append("d/img"+str(i)+".jpg")
 
 for fname in images:
     img = cv2.imread(fname)
@@ -98,7 +98,7 @@ if ret:
 
     print(f"\nDistorzné koeficienty:\n{dist}")
 
-    np.savez("parametre_kamery.npz", mtx=mtx, dist=dist)
+    np.savez("parametre_kamery_new.npz", mtx=mtx, dist=dist)
     print("\ngoog")
     test_img = cv2.imread(images[0])
     if test_img is not None:
