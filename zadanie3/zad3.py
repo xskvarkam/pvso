@@ -20,7 +20,6 @@ def nas_filter2d(image, kernel):
     return output
 def canny2(image, low_threshold=0.05, high_threshold=0.15):
 
-    #gaus
     kernel = np.array([[2, 4, 5, 4, 2],
                        [4, 9, 12, 9, 4],
                        [5, 12, 15, 12, 5],
@@ -28,22 +27,29 @@ def canny2(image, low_threshold=0.05, high_threshold=0.15):
                        [2, 4, 5, 4, 2]], dtype=np.float32) / 159.0
     smoothed = nas_filter2d(image, kernel)
 
-    #gradient
+
+    cv2.imshow('1. Gaussovo rozmazanie', np.uint8(smoothed))
+
+
     Kx = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], np.float32)
     Ky = np.array([[1, 2, 1], [0, 0, 0], [-1, -2, -1]], np.float32)
     Ix = nas_filter2d(smoothed, Kx)
     Iy = nas_filter2d(smoothed, Ky)
 
-    #velkost a smer gradientu
+
     G = np.hypot(Ix, Iy)
     G = G / G.max() * 255
     theta = np.arctan2(Iy, Ix)
+
+
+    cv2.imshow('2. Vypocet gradientu (Velkost)', np.uint8(G))
 
     M, N = G.shape
     Z = np.zeros((M, N), dtype=np.int32)
     angle = theta * 180. / np.pi
     angle[angle < 0] += 180
 
+    # 3. Non-maximum suppression
     for i in range(1, M - 1):
         for j in range(1, N - 1):
             q = 255
@@ -66,7 +72,8 @@ def canny2(image, low_threshold=0.05, high_threshold=0.15):
             else:
                 Z[i, j] = 0
 
-    # prahy
+    cv2.imshow('3. Non-maximum suppression', np.uint8(Z))
+
     high_thresh = Z.max() * high_threshold
     low_thresh = high_thresh * low_threshold
     res = np.zeros((M, N), dtype=np.int32)
@@ -78,7 +85,8 @@ def canny2(image, low_threshold=0.05, high_threshold=0.15):
     res[strong_i, strong_j] = strong
     res[weak_i, weak_j] = weak
 
-    #pripajanie
+    cv2.imshow('4. Double threshold', np.uint8(res))
+
     for i in range(1, M - 1):
         for j in range(1, N - 1):
             if res[i, j] == weak:
@@ -88,6 +96,8 @@ def canny2(image, low_threshold=0.05, high_threshold=0.15):
                     res[i, j] = strong
                 else:
                     res[i, j] = 0
+
+    cv2.imshow('5. Edge tracking (Hysterezia)', np.uint8(res))
 
     return np.uint8(res)
 
